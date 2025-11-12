@@ -1,4 +1,3 @@
-package com.buzz;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -7,57 +6,91 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class indovina extends Thread {
     Socket s;
-
-    private static ArrayList<String> lista1 = new ArrayList<>(Arrays.asList(
-            "Marco Rossi", "Ivan Bruno", "Giulia Neri", "Luca Bianchi", "Sara Galli"));
-
-    private static ArrayList<String> lista2 = new ArrayList<>(Arrays.asList(
-            "Ciccio Bello", "Francesca Pini", "Giorgio Verdi", "Marta Lodi", "Claudio Benvenuti", "Pippo Baudo"));
-
-    private static ArrayList<String> lista3 = new ArrayList<>(Arrays.asList(
-            "Anna Rosa", "Paolo Conti", "Davide Leone", "Chiara Valli", "Elisa Greco"));
-
-    private static final ArrayList<ArrayList<String>> liste = new ArrayList<>(
-            Arrays.asList(lista1, lista2, lista3));
+    int segreto;
 
     public indovina(Socket mioSocket) throws NumberFormatException, IOException {
         this.s = mioSocket;
+        segreto = ThreadLocalRandom.current().nextInt(1, 101); // 1 incluso, 101 escluso
     }
+
+   
 
     public void run() {
 
         try {
-            System.out.println("Qualcuno si è collegato");
             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
             PrintWriter out;
             out = new PrintWriter(s.getOutputStream(), true);
-
-            out.println("Versione server: 1.0");
-
-            int listaNum;
+            out.println("WELCOME INDOVINA v1 RANGE 1 100");
+            int tries = 0;
+            int min = 1; // default
+            int max = 100; // default
             do {
-                String lista = in.readLine();
-                if (lista.equals("!")) {
-                    break;
-                }
-                listaNum = Integer.parseInt(lista);
-                if (liste.size() < listaNum) {
-                    out.println("KO");
-                } else {
-                    out.println("OK");
-                    int giocatore = Integer.parseInt(in.readLine());
-                    if (liste.get(listaNum - 1).size() < giocatore) {
-                        out.println("KO");
-                        System.out.println("log");
-                    } else {
-                        out.println("OK");
-                        System.out.println("Ciao");
-                        out.println(liste.get(listaNum - 1).get(giocatore - 1));
+
+                System.out.println(segreto);
+
+                String comando = in.readLine();
+                String[] parts = comando.split(" ");
+
+                if (parts.length == 2) {                                // prova ad indovinare
+                    int n1 = Integer.parseInt(parts[1]);
+
+                    if (parts[0].equals("GUESS") && n1 > min && n1 < max) {
+                        tries++;
+
+                        if (n1 == segreto) {
+                            out.println("OK CORRECT in T=" + tries);
+                            break;
+                        }
+                        if (n1 > segreto) {
+                            out.println("HINT LOWER");
+
+                        }
+                        if (n1 < segreto) {
+                            out.println("HINT HIGHER");
+                        }
                     }
+                    else{
+                        out.println("ERR SYNTAX");
+                    }
+                   
                 }
+
+                if (parts.length == 3) { // cambio RANGE
+
+                    int n1 = Integer.parseInt(parts[1]);
+                    int n2 = Integer.parseInt(parts[2]);
+
+                    if (parts[0].equals("RANGE") && n1 < n2 && tries == 0) {
+                        min = n1;
+                        max = n2;
+                        out.println("OK RANGE" + " " + min + " " + max);
+                        segreto = ThreadLocalRandom.current().nextInt(min, max); // 1 incluso, 101 escluso
+                    }
+
+                }
+                if (comando.equals("STATS")) {
+                    out.println("INFO RANGE "+ min +" "+ max + "; "+ " TRIES " + tries);
+                }
+
+                if (comando.equals("NEW")) {
+                    out.println("OK NEW");
+                    segreto = ThreadLocalRandom.current().nextInt(min, max); // 1 incluso, 101 escluso
+                    out.println("WELCOME INDOVINA v1 RANGE" + " " + min + " " + max);
+                    tries = 0;
+
+                }
+ 
+                if (comando.equals("QUIT")) {
+                    out.println("BYE");
+                /*     mioSocket.close(); */
+                }
+            
+
             } while (true);
 
         } catch (IOException e) {
